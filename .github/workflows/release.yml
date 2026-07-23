@@ -33,9 +33,6 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
       - name: Restore NuGet dependencies
         run: dotnet restore Connector.slnx
 
@@ -57,7 +54,7 @@ jobs:
         shell: pwsh
 
       - name: Build installer builder
-        run: msbuild src/Connector.Installer/Connector.Installer.csproj /p:Configuration=Release /p:Platform=AnyCPU
+        run: dotnet build src/Connector.Installer/Connector.Installer.csproj -c Release
 
       - name: Run installer builder
         run: cd src/Connector.Installer/bin/Release/net472 && ./Connector.Installer.exe "${{ github.workspace }}/publish-gui"
