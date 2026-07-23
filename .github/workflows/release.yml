@@ -73,13 +73,13 @@ jobs:
           files: |
             "src/Connector.Installer/bin/Release/net472/releases/Scanye.Konektor.Installer.${{ env.VERSION }}.msi"
             "src/Connector.Installer/bin/Release/net472/releases/changelog.txt"
-          repository: 'drzeszutek/ap-connector-preview-channel'
+          repository: 'KacperGrabowski/ap-connector-preview-channel'
           token: ${{ secrets.PAT_RELEASE_PUSH }}
 
       - name: Checkout update repository
         uses: actions/checkout@v5
         with:
-          repository: 'drzeszutek/ap-connector-preview-channel'
+          repository: 'KacperGrabowski/ap-connector-preview-channel'
           ref: main
           path: preview
           
@@ -88,7 +88,7 @@ jobs:
         run: |
           $version = $env:VERSION
           $tag = "${{ inputs.version_tag }}"
-          $repo = "drzeszutek/ap-connector-preview-channel"
+          $repo = "KacperGrabowski/ap-connector-preview-channel"
           $msi = "Scanye.Konektor.Installer.$version.msi"
           $json = @{
             "version" = $version
