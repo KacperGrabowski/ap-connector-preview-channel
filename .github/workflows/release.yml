@@ -10,14 +10,13 @@ on:
       PAT:
         description: "PAT to access ap-connector repo"
         required: true
-      PAT_RELEASE_PUSH:
-        description: "PAT to create a new release and push release files"
-        required: true
-        
+
 jobs:
   build-and-release:
     # windows-2022 runner has a .net 4.7.2 already installed.
     runs-on: windows-2022
+    permissions:
+      contents: write
     steps:
       - name: Checkout code from the specified tag (Public)
         uses: actions/checkout@v5
@@ -26,18 +25,18 @@ jobs:
           ref: "develop"
           token: ${{ secrets.PAT }}
           persist-credentials: false
-          
+
       - name: Setup .NET 9 SDK
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "9.0.x"
-          
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
-        
+
       - name: Restore NuGet dependencies
         run: dotnet restore src/Connector.sln
-       
+
       - name: Install Wix globally
         run: dotnet tool install --global wix
 
@@ -46,15 +45,15 @@ jobs:
         run: |
           $VERSION = "${{ inputs.version_tag }}"
           echo "VERSION=$($VERSION.Substring(1))" >> $env:GITHUB_ENV
-          
+
       - name: Publish Connector.GUI and Stamp Version
         run: |
           dotnet publish src/Connector.GUI/Connector.GUI.csproj --configuration Release --self-contained true -p:PublishSingleFile=true --output ./publish-gui /p:Version=$env:VERSION /p:AssemblyVersion=$env:VERSION /p:FileVersion=$env:VERSION /p:WarningLevel=0
         shell: pwsh
-        
+
       - name: Build installer builder
         run: msbuild src/Connector.Installer/Connector.Installer.csproj /p:Configuration=Release /p:Platform=AnyCPU
-        
+
       - name: Run installer builder
         run: cd src/Connector.Installer/bin/Release/net472 && ./Connector.Installer.exe "${{ github.workspace }}/publish-gui"
 
@@ -65,7 +64,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $releaseDir
           "" | Out-File -FilePath "$releaseDir/changelog.txt"
         shell: pwsh
-        
+
       - name: Create GitHub Release and Upload Installer [Public]
         uses: softprops/action-gh-release@v2
         with:
@@ -73,8 +72,7 @@ jobs:
           files: |
             "src/Connector.Installer/bin/Release/net472/releases/Scanye.Konektor.Installer.${{ env.VERSION }}.msi"
             "src/Connector.Installer/bin/Release/net472/releases/changelog.txt"
-          repository: 'KacperGrabowski/ap-connector-preview-channel'
-          token: ${{ secrets.PAT_RELEASE_PUSH }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout update repository
         uses: actions/checkout@v5
@@ -82,7 +80,7 @@ jobs:
           repository: 'KacperGrabowski/ap-connector-preview-channel'
           ref: main
           path: preview
-          
+
       - name: Update update.json
         working-directory: preview
         run: |
@@ -102,7 +100,7 @@ jobs:
           } | ConvertTo-Json -Depth 3
           Set-Content -Path update.json -Value $json
         shell: pwsh
-        
+
       - name: Commit and push update.json
         working-directory: preview
         run: |
