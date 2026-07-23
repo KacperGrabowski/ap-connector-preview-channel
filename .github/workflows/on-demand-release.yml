@@ -1,0 +1,20 @@
+name: Create Konektor Release On Demand
+
+run-name: "[${{ inputs.version_tag }}] Build Konektor, create installer and release it (public)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: "Enter the existing Git tag to release (e.g., v1.1.0)"
+        required: true
+        type: string
+
+jobs:
+  build-and-release:
+    uses: ./.github/workflows/release.yml
+    with:
+      version_tag: ${{ inputs.version_tag }}
+    secrets:
+      PAT: ${{ secrets.PAT }}
+      PAT_RELEASE_PUSH: ${{ secrets.PAT_RELEASE_PUSH }}

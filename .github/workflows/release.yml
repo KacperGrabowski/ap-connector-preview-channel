@@ -1,0 +1,114 @@
+name: Create Konektor Release
+on:
+  workflow_call:
+    inputs:
+      version_tag:
+        description: "Enter the existing Git tag to release (e.g., v1.1.0)"
+        required: true
+        type: string
+    secrets:
+      PAT:
+        description: "PAT to access ap-connector repo"
+        required: true
+      PAT_RELEASE_PUSH:
+        description: "PAT to create a new release and push release files"
+        required: true
+        
+jobs:
+  build-and-release:
+    # windows-2022 runner has a .net 4.7.2 already installed.
+    runs-on: windows-2022
+    steps:
+      - name: Checkout code from the specified tag (Public)
+        uses: actions/checkout@v5
+        with:
+          repository: "scanye/ap-connector"
+          ref: "develop"
+          token: ${{ secrets.PAT }}
+          persist-credentials: false
+          
+      - name: Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+          
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        
+      - name: Restore NuGet dependencies
+        run: dotnet restore src/Connector.sln
+       
+      - name: Install Wix globally
+        run: dotnet tool install --global wix
+
+      - name: Set stripped version
+        id: vars
+        run: |
+          $VERSION = "${{ inputs.version_tag }}"
+          echo "VERSION=$($VERSION.Substring(1))" >> $env:GITHUB_ENV
+          
+      - name: Publish Connector.GUI and Stamp Version
+        run: |
+          dotnet publish src/Connector.GUI/Connector.GUI.csproj --configuration Release --self-contained true -p:PublishSingleFile=true --output ./publish-gui /p:Version=$env:VERSION /p:AssemblyVersion=$env:VERSION /p:FileVersion=$env:VERSION /p:WarningLevel=0
+        shell: pwsh
+        
+      - name: Build installer builder
+        run: msbuild src/Connector.Installer/Connector.Installer.csproj /p:Configuration=Release /p:Platform=AnyCPU
+        
+      - name: Run installer builder
+        run: cd src/Connector.Installer/bin/Release/net472 && ./Connector.Installer.exe "${{ github.workspace }}/publish-gui"
+
+      # Create (empty) changelog, figure out when and how update it with real changes
+      - name: Create changelog
+        run: |
+          $releaseDir = "src/Connector.Installer/bin/Release/net472/releases"
+          New-Item -ItemType Directory -Force -Path $releaseDir
+          "" | Out-File -FilePath "$releaseDir/changelog.txt"
+        shell: pwsh
+        
+      - name: Create GitHub Release and Upload Installer [Public]
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version_tag }}
+          files: |
+            "src/Connector.Installer/bin/Release/net472/releases/Scanye.Konektor.Installer.${{ env.VERSION }}.msi"
+            "src/Connector.Installer/bin/Release/net472/releases/changelog.txt"
+          repository: 'drzeszutek/ap-connector-preview-channel'
+          token: ${{ secrets.PAT_RELEASE_PUSH }}
+
+      - name: Checkout update repository
+        uses: actions/checkout@v5
+        with:
+          repository: 'drzeszutek/ap-connector-preview-channel'
+          ref: main
+          path: preview
+          
+      - name: Update update.json
+        working-directory: preview
+        run: |
+          $version = $env:VERSION
+          $tag = "${{ inputs.version_tag }}"
+          $repo = "drzeszutek/ap-connector-preview-channel"
+          $msi = "Scanye.Konektor.Installer.$version.msi"
+          $json = @{
+            "version" = $version
+            "url" = "https://github.com/$repo/releases/download/$tag/$msi"
+            "changelog" = "https://github.com/$repo/releases/download/$tag/changelog.txt"
+            "mandatory" = @{
+              "value" = $false
+              "minVersion" = "1.0.0"
+              "mode" = "Normal"
+            }
+          } | ConvertTo-Json -Depth 3
+          Set-Content -Path update.json -Value $json
+        shell: pwsh
+        
+      - name: Commit and push update.json
+        working-directory: preview
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "Update update.json for ${{ inputs.version_tag }}"
+          git push
+        shell: pwsh
