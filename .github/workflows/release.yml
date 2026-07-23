@@ -59,12 +59,30 @@ jobs:
       - name: Run installer builder
         run: cd src/Connector.Installer/bin/Release/net472 && ./Connector.Installer.exe "${{ github.workspace }}/publish-gui"
 
-      # Create (empty) changelog, figure out when and how update it with real changes
+      # Extract the changelog block for this version from ap-connector/changelog.txt
+      # (falls back to the whole file if the version block is not found)
       - name: Create changelog
         run: |
+          $version = $env:VERSION
           $releaseDir = "src/Connector.Installer/bin/Release/net472/releases"
-          New-Item -ItemType Directory -Force -Path $releaseDir
-          "" | Out-File -FilePath "$releaseDir/changelog.txt"
+          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
+          $src = "changelog.txt"
+          $out = @()
+          if (Test-Path $src) {
+            $capture = $false
+            foreach ($line in Get-Content $src) {
+              if ($line.Trim() -eq "Release v$version") { $capture = $true; $out += $line; continue }
+              if ($capture -and $line -match '^\s*Release v') { break }
+              if ($capture) { $out += $line }
+            }
+            if ($out.Count -eq 0) {
+              Write-Host "No block for v$version found; using full changelog."
+              $out = Get-Content $src
+            }
+          } else {
+            Write-Host "changelog.txt not found in source checkout; writing empty changelog."
+          }
+          $out -join "`n" | Out-File -FilePath "$releaseDir/changelog.txt" -Encoding utf8
         shell: pwsh
 
       - name: Create GitHub Release and Upload Installer [Public]
