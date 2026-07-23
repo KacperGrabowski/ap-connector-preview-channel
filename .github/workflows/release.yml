@@ -25,20 +25,25 @@ jobs:
           ref: ${{ inputs.version_tag }}
           token: ${{ secrets.PAT }}
           persist-credentials: false
+          fetch-depth: 0
+          fetch-tags: true
 
-      - name: Setup .NET 9 SDK
+      - name: Setup .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: "10.0.x"
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       - name: Restore NuGet dependencies
-        run: dotnet restore src/Connector.sln
+        run: dotnet restore Connector.slnx
 
-      - name: Install Wix globally
-        run: dotnet tool install --global wix
+      - name: Install Wix globally (v4 — WixSharp_wix4 breaks on v7)
+        run: |
+          dotnet tool install --global wix --version 4.0.5
+          wix extension add -g WixToolset.UI.wixext/4.0.5
+        shell: pwsh
 
       - name: Set stripped version
         id: vars
@@ -70,8 +75,8 @@ jobs:
         with:
           tag_name: ${{ inputs.version_tag }}
           files: |
-            "src/Connector.Installer/bin/Release/net472/releases/Scanye.Konektor.Installer.${{ env.VERSION }}.msi"
-            "src/Connector.Installer/bin/Release/net472/releases/changelog.txt"
+            src/Connector.Installer/bin/Release/net472/releases/Scanye.Konektor.Installer.${{ env.VERSION }}.msi
+            src/Connector.Installer/bin/Release/net472/releases/changelog.txt
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout update repository
@@ -81,7 +86,7 @@ jobs:
           ref: main
           path: preview
 
-      - name: Update update.json
+      - name: Update manifest.json
         working-directory: preview
         run: |
           $version = $env:VERSION
@@ -90,6 +95,7 @@ jobs:
           $msi = "Scanye.Konektor.Installer.$version.msi"
           $json = @{
             "version" = $version
+            "semver" = $version
             "url" = "https://github.com/$repo/releases/download/$tag/$msi"
             "changelog" = "https://github.com/$repo/releases/download/$tag/changelog.txt"
             "mandatory" = @{
@@ -98,15 +104,16 @@ jobs:
               "mode" = "Normal"
             }
           } | ConvertTo-Json -Depth 3
-          Set-Content -Path update.json -Value $json
+          New-Item -ItemType Directory -Force -Path channels/stable | Out-Null
+          Set-Content -Path channels/stable/manifest.json -Value $json
         shell: pwsh
 
-      - name: Commit and push update.json
+      - name: Commit and push manifest.json
         working-directory: preview
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add update.json
-          git commit -m "Update update.json for ${{ inputs.version_tag }}"
+          git add channels/stable/manifest.json
+          git commit -m "Update manifest.json for ${{ inputs.version_tag }}"
           git push
         shell: pwsh
