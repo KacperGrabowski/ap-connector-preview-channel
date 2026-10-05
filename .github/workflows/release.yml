@@ -59,35 +59,18 @@ jobs:
       - name: Run installer builder
         run: cd src/Connector.Installer/bin/Release/net472 && ./Connector.Installer.exe "${{ github.workspace }}/publish-gui"
 
-      # Extract this version's changelog block from ap-connector/changelog.txt, together with the
-      # blocks before it, and fall back to the whole file when the version block is not found.
-      #
-      # Several blocks rather than one, because a patch release says only what the patch fixed: v1.35.1
-      # reads "the details window works again" and a reader has no way to learn what v1.35.0 brought.
-      # Anyone updating from an older version skips releases too, so one block hides most of what they
-      # are getting.
+      # Changelog from this version's block to the end of the file; whole file when the block is missing.
       - name: Create changelog
         run: |
           $version = $env:VERSION
-          $blocksToInclude = 3
           $releaseDir = "src/Connector.Installer/bin/Release/net472/releases"
           New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
           $src = "changelog.txt"
           $out = @()
           if (Test-Path $src) {
             $capture = $false
-            $blocksSeen = 0
             foreach ($line in Get-Content $src) {
-              if ($line -match '^\s*Release v') {
-                if ($line.Trim() -eq "Release v$version") {
-                  $capture = $true
-                  $blocksSeen = 1
-                }
-                elseif ($capture) {
-                  $blocksSeen++
-                  if ($blocksSeen -gt $blocksToInclude) { break }
-                }
-              }
+              if ($line.Trim() -eq "Release v$version") { $capture = $true }
               if ($capture) { $out += $line }
             }
             if ($out.Count -eq 0) {
