@@ -1,11 +1,11 @@
 {
   "mandatory": {
-    "mode": "Normal",
     "minVersion": "1.0.0",
+    "mode": "Normal",
     "value": false
   },
-  "version": "1.39.1",
-  "changelog": "https://github.com/KacperGrabowski/ap-connector-preview-channel/releases/download/v1.39.1/changelog.txt",
-  "url": "https://github.com/KacperGrabowski/ap-connector-preview-channel/releases/download/v1.39.1/Scanye.Konektor.Installer.1.39.1.msi",
-  "semver": "1.39.1"
+  "changelog": "https://github.com/KacperGrabowski/ap-connector-preview-channel/releases/download/v1.39.2/changelog.txt",
+  "semver": "1.39.2",
+  "version": "1.39.2",
+  "url": "https://github.com/KacperGrabowski/ap-connector-preview-channel/releases/download/v1.39.2/Scanye.Konektor.Installer.1.39.2.msi"
 }
